@@ -54,7 +54,6 @@ def health() -> dict[str, str]:
         get_model_service()
     except ModelLoadError as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
-
     return {"status": "ok"}
 
 
@@ -75,6 +74,5 @@ def predict_gba_class(payload: GbaClassificationRequest) -> dict:
 
 @app.post("/recommend/track", response_model=TrackRecommendationResponse)
 def recommend_track(payload: TrackRecommendationRequest) -> dict:
-    return get_model_service().recommend_track(
-        [course.model_dump() for course in payload.courses]
-    )
+    # ── CHANGED: pass payload.courses instead of payload.track_scores ─────────
+    return get_model_service().recommend_track(payload.courses)
