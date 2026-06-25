@@ -34,25 +34,29 @@ class GbaClassificationResponse(BaseModel):
     rule_based_level: Optional[str] = None
     probabilities: Dict[str, float]
 
+class CourseGrade(BaseModel):
+    course_id: str
+    grade: float
 
 class TrackRecommendationRequest(BaseModel):
     model_config = ConfigDict(
         json_schema_extra={
             "example": {
-                "track_scores": {
-                    "track_1_score": 82.5,
-                    "track_2_score": 74.0,
-                    "track_3_score": 91.0,
-                }
+                "courses": [
+                    {
+                        "course_id": "CS-210",
+                        "grade": 90
+                    },
+                    {
+                        "course_id": "CS-310",
+                        "grade": 80
+                    }
+                ]
             }
         }
     )
 
-    track_scores: Dict[str, float] = Field(
-        ...,
-        description="Scores keyed by model feature name, for example track_1_score.",
-    )
-
+    courses: List[CourseGrade]
 
 class TrackProbability(BaseModel):
     track_id: Optional[int] = None
