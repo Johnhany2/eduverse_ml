@@ -75,4 +75,6 @@ def predict_gba_class(payload: GbaClassificationRequest) -> dict:
 
 @app.post("/recommend/track", response_model=TrackRecommendationResponse)
 def recommend_track(payload: TrackRecommendationRequest) -> dict:
-    return get_model_service().recommend_track(payload.track_scores)
+    return get_model_service().recommend_track(
+        [course.model_dump() for course in payload.courses]
+    )
