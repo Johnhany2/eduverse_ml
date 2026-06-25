@@ -1,6 +1,9 @@
 import os
 from pathlib import Path
+from pyexpat import features, model
 from typing import Any, Dict, Iterable, List, Optional
+
+from pandas.core import frame
 
 import joblib
 import pandas as pd
@@ -72,6 +75,9 @@ class ModelService:
         self.risk = _load_bundle("student_risk_model.pkl")
         self.gba = _load_bundle("classfication_gba_model.pkl")
         self.track = _load_bundle("track_recommendation_model.pkl")
+        self.track_weights = pd.read_excel(
+            MODEL_DIR / "track_course_weights.xlsx"
+)
 
     def metadata(self) -> Dict[str, List[str]]:
         return {
@@ -126,27 +132,70 @@ class ModelService:
             "probabilities": probabilities,
         }
 
-    def recommend_track(self, track_scores: Dict[str, float]) -> Dict[str, Any]:
+    def recommend_track(self, courses: List[Dict[str, Any]]) -> Dict[str, Any]:
+
+        student_data = pd.DataFrame(courses)
+
+        merged = student_data.merge(
+            self.track_weights,
+            on="course_id",
+            how="inner"
+        )
+
+        merged["weighted_grade"] = (
+            merged["grade"] * merged["weight"]
+        )
+
+        scores = merged.groupby("track_id")[
+            "weighted_grade"
+        ].mean()
+
+        track_scores = {
+            f"track_{track_id}_score": scores.get(track_id, 0)
+            for track_id in self.track_weights["track_id"].unique()
+        }
+
         features = self.track["features"]
-        frame = _dataframe_from_features(features, track_scores)
+
+        frame = _dataframe_from_features(
+            features,
+            track_scores
+        )
+
         model = self.track["model"]
+
         label_encoder = self.track["label_encoder"]
 
         encoded_prediction = model.predict(frame)[0]
-        track_id = int(_to_builtin(label_encoder.inverse_transform([encoded_prediction])[0]))
-        track_name = self._track_name(track_id) or str(track_id)
+
+        track_id = int(
+            _to_builtin(
+                label_encoder.inverse_transform(
+                    [encoded_prediction]
+                )[0]
+            )
+        )
+
+        track_name = self._track_name(track_id)
 
         probabilities = []
+
         if hasattr(model, "predict_proba"):
+
             raw_probabilities = model.predict_proba(frame)[0]
-            classes = getattr(model, "classes_", range(len(raw_probabilities)))
-            try:
-                track_ids = label_encoder.inverse_transform(classes)
-            except Exception:
-                track_ids = label_encoder.classes_
+
+            classes = getattr(
+                model,
+                "classes_",
+                range(len(raw_probabilities))
+            )
+
+            track_ids = label_encoder.inverse_transform(classes)
 
             for current_track_id, probability in zip(track_ids, raw_probabilities):
+
                 current_track_id = int(_to_builtin(current_track_id))
+
                 probabilities.append(
                     {
                         "track_id": current_track_id,
@@ -160,6 +209,8 @@ class ModelService:
             "recommended_track_name": track_name,
             "probabilities": probabilities,
         }
+
+
 
     def _track_name(self, track_id: int) -> Optional[str]:
         tracks = self.track.get("tracks")
