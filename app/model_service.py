@@ -351,7 +351,7 @@ class ModelService:
 
     def recommend_track(self, courses: List[Dict[str, Any]]) -> Dict[str, Any]:
 
-        student_data = pd.DataFrame(courses)
+        student_data = pd.DataFrame([{"course_id": c.course_id, "grade": c.grade} for c in courses])
 
         merged = student_data.merge(
             self.track_weights,
